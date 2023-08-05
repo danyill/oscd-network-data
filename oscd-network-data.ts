@@ -6,15 +6,7 @@ import '@material/mwc-dialog';
 import '@material/mwc-formfield';
 import '@material/mwc-switch';
 
-import {
-  Edit,
-  EditEvent,
-  Insert,
-  Update,
-  newEditEvent,
-} from '@openscd/open-scd-core';
-import { connected } from 'process';
-import { isNull } from 'util';
+import { Edit, Insert, Update, newEditEvent } from '@openscd/open-scd-core';
 
 // from scl-lib
 /** @returns control block or null for a given external reference */
@@ -47,24 +39,6 @@ function sourceControlBlock(extRef: Element): Element | null {
   );
 }
 
-// from scl-lib
-/** @returns object reference acc. IEC 61850-7-3 for control block elements */
-function controlBlockObjRef(ctrlBlock: Element): string | null {
-  const iedName = ctrlBlock.closest('IED')?.getAttribute('name');
-  const ldInst = ctrlBlock.closest('LDevice')?.getAttribute('inst');
-
-  const parentLn = ctrlBlock.closest('LN,LN0');
-
-  const prefix = parentLn?.getAttribute('prefix') ?? '';
-  const lnClass = parentLn?.getAttribute('lnClass');
-  const lnInst = parentLn?.getAttribute('inst') ?? '';
-
-  const cbName = ctrlBlock.getAttribute('name');
-  if (!iedName || !ldInst || !lnClass || !cbName) return null;
-
-  return `${iedName}${ldInst}/${prefix}${lnClass}${lnInst}.${cbName}`;
-}
-
 function getCommAddress(ctrlBlock: Element): Element {
   const doc = ctrlBlock.ownerDocument;
 
@@ -79,7 +53,7 @@ function getCommAddress(ctrlBlock: Element): Element {
 const TPNS = 'https://transpower.co.nz/SCL/SCD/Communication/v1';
 const XSINS = 'http://www.w3.org/2001/XMLSchema-instance';
 
-export default class NetworkConfig extends LitElement {
+export default class NetworkData extends LitElement {
   /** The document being edited as provided to plugins by [[`OpenSCD`]]. */
   @property({ attribute: false })
   doc!: XMLDocument;
@@ -88,8 +62,6 @@ export default class NetworkConfig extends LitElement {
   docName!: string;
 
   async run(): Promise<void> {
-    // remove existing elements
-    // create new elements
     const controlBlocks = new Map<Element, Element[]>();
     Array.from(this.doc.querySelectorAll('ExtRef')).forEach(extRef => {
       const cb = sourceControlBlock(extRef);
@@ -189,6 +161,7 @@ export default class NetworkConfig extends LitElement {
         privateSCL.appendChild(mac);
       }
 
+      // TODO: Should we include APPIDs?
       // const appId = address.querySelector('P[type="APPID"]');
       // if (appId) {
       //   const app = this.doc.createElementNS(TPNS, 'P');
@@ -211,7 +184,7 @@ export default class NetworkConfig extends LitElement {
         const connectedAp = this.doc.querySelector(
           `:root > Communication > SubNetwork[name="${subNetworkName}"] > ConnectedAP[iedName="${iedNameRx}"]`
         );
-        console.log(connectedAp);
+
         if (connectedAp) {
           const edit: Insert = {
             parent: connectedAp,
@@ -223,7 +196,6 @@ export default class NetworkConfig extends LitElement {
       });
     });
 
-    // this.dispatchEvent(newEditEvent(removals))
     this.dispatchEvent(newEditEvent(edits));
   }
 }

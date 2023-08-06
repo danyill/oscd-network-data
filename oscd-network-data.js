@@ -5419,6 +5419,10 @@ function getCommAddress(ctrlBlock) {
 const TPNS = 'https://transpower.co.nz/SCL/SCD/Communication/v1';
 const XSINS = 'http://www.w3.org/2001/XMLSchema-instance';
 class NetworkData extends s$1 {
+    constructor() {
+        super(...arguments);
+        this.subscriptionCount = 0;
+    }
     async run() {
         // fetch unique control blocks and subscribing IEDs
         const controlBlocksAndAPs = new Map();
@@ -5477,7 +5481,11 @@ class NetworkData extends s$1 {
             edits.push(namespaceUpdate);
         const removePrivates = Array.from(this.doc.querySelectorAll('Private[type="Transpower-GSE-Subscribe"], Private[type="Transpower-SMV-Subscribe"]')).map(element => ({ node: element }));
         edits.push(removePrivates);
+        if (removePrivates)
+            console.log(`Removed ${removePrivates.length}`);
         this.dispatchEvent(newEditEvent(edits));
+        this.subscriptionCount = 0;
+        let addedSubscriptionCount = 0;
         sortedControlBlocksAndAPs.forEach((receivingIeds, cb) => {
             const address = getCommAddress(cb);
             if (!address) {
@@ -5558,15 +5566,21 @@ class NetworkData extends s$1 {
                     console.log(`Creating ConnectedAP for IED ${apIedNameRx}, Access Point ${apName} and SubNetwork ${subNetworkName}`);
                 }
                 this.dispatchEvent(newEditEvent(edit));
-                this.successMessage.show();
+                addedSubscriptionCount += 1;
             });
         });
+        this.subscriptionCount = addedSubscriptionCount;
+        this.successMessage.show();
+    }
+    getEditCount() {
+        return this.subscriptionCount;
     }
     render() {
         return x `<mwc-snackbar
       id="successMessage"
       leading
-      labelText="Network data updated"
+      labelText="Network data updated (${this
+            .subscriptionCount} items written)."
     >
     </mwc-snackbar>`;
     }
@@ -5577,6 +5591,9 @@ __decorate([
 __decorate([
     n$3({ attribute: false })
 ], NetworkData.prototype, "docName", void 0);
+__decorate([
+    n$3({ attribute: false })
+], NetworkData.prototype, "subscriptionCount", void 0);
 __decorate([
     i$2('#successMessage')
 ], NetworkData.prototype, "successMessage", void 0);

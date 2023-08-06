@@ -1,9 +1,10 @@
-import { LitElement } from 'lit';
-import { property } from 'lit/decorators.js';
+import { LitElement, TemplateResult, html } from 'lit';
+import { property, query } from 'lit/decorators.js';
 
 import '@material/mwc-button';
 import '@material/mwc-dialog';
 import '@material/mwc-formfield';
+import '@material/mwc-snackbar';
 import '@material/mwc-switch';
 
 import {
@@ -14,6 +15,7 @@ import {
   newEditEvent,
 } from '@openscd/open-scd-core';
 import { createElement } from '@openenergytools/scl-lib/dist/foundation/utils';
+import type { Snackbar } from '@material/mwc-snackbar';
 
 // from scl-lib
 /** @returns control block or null for a given external reference */
@@ -68,28 +70,31 @@ export default class NetworkData extends LitElement {
   @property({ attribute: false })
   docName!: string;
 
+  @query('#successMessage')
+  successMessage!: Snackbar;
+
   async run(): Promise<void> {
     // fetch unique control blocks and subscribing IEDs
-    const controlBlocksAndIeds = new Map<Element, Element[]>();
+    const controlBlocksAndAPs = new Map<Element, Element[]>();
     Array.from(this.doc.querySelectorAll('ExtRef')).forEach(extRef => {
       const cb = sourceControlBlock(extRef);
-      const ied = extRef.closest('IED')!;
+      const ap = extRef.closest('AccessPoint')!;
 
       if (!cb) return;
 
       // need to store IED and ConnectedAP apName
-      const cbAlreadyExists = controlBlocksAndIeds.has(cb);
-      const cbHasIed = controlBlocksAndIeds.get(cb)?.includes(ied);
+      const cbAlreadyExists = controlBlocksAndAPs.has(cb);
+      const cbHasIed = controlBlocksAndAPs.get(cb)?.includes(ap);
       if (cbAlreadyExists && !cbHasIed) {
-        controlBlocksAndIeds.set(cb, [...controlBlocksAndIeds.get(cb)!, ied]);
+        controlBlocksAndAPs.set(cb, [...controlBlocksAndAPs.get(cb)!, ap]);
       } else if (!cbAlreadyExists) {
-        controlBlocksAndIeds.set(cb, [ied]);
+        controlBlocksAndAPs.set(cb, [ap]);
       }
     });
 
     // provide stable order -- GOOSE then SV, sorted by IED and control block name
-    const sortedControlBlocksAndIeds = new Map(
-      [...controlBlocksAndIeds].sort((first, second) => {
+    const sortedControlBlocksAndAPs = new Map(
+      [...controlBlocksAndAPs].sort((first, second) => {
         const firstKey = first[0];
         const secondKey = second[0];
         const comparison = (e: Element) =>
@@ -101,8 +106,8 @@ export default class NetworkData extends LitElement {
     );
 
     // sort the order IEDs are processed
-    sortedControlBlocksAndIeds.forEach((value, key) => {
-      sortedControlBlocksAndIeds.set(key, value.sort());
+    sortedControlBlocksAndAPs.forEach((value, key) => {
+      sortedControlBlocksAndAPs.set(key, value.sort());
     });
 
     const edits: Edit[] = [];
@@ -113,10 +118,10 @@ export default class NetworkData extends LitElement {
       attributes: {},
     };
 
-    if (!this.doc.documentElement.hasAttribute('xmlns:etp'))
+    if (!this.doc.documentElement.hasAttribute('xmlns:etpc'))
       namespaceUpdate.attributes = {
         ...namespaceUpdate.attributes,
-        'xmlns:etp': {
+        'xmlns:etpc': {
           value: TPNS,
           namespaceURI: 'http://www.w3.org/2000/xmlns/',
         },
@@ -136,13 +141,15 @@ export default class NetworkData extends LitElement {
 
     const removePrivates: Remove[] = Array.from(
       this.doc.querySelectorAll(
-        'Private[type="Transpower-GSE-Receive"], Private[type="Transpower-SMV-Receive"]'
+        'Private[type="Transpower-GSE-Subscribe"], Private[type="Transpower-SMV-Subscribe"]'
       )
     ).map(element => ({ node: element }));
 
     edits.push(removePrivates);
 
-    sortedControlBlocksAndIeds.forEach((receivingIeds, cb) => {
+    this.dispatchEvent(newEditEvent(edits));
+
+    sortedControlBlocksAndAPs.forEach((receivingIeds, cb) => {
       const address = getCommAddress(cb);
 
       if (!address) {
@@ -150,14 +157,17 @@ export default class NetworkData extends LitElement {
         return;
       }
 
-      const subNetwork = address.closest('SubNetwork');
+      const addressSubNetwork = address.closest('SubNetwork');
       const iedName = cb.closest('IED')!.getAttribute('name')!;
 
       const privateSCL = this.doc.createElementNS(
         this.doc.documentElement.namespaceURI,
         'Private'
       );
-      privateSCL.setAttribute('type', `Transpower-${address.tagName}-Receive`);
+      privateSCL.setAttribute(
+        'type',
+        `Transpower-${address.tagName}-Subscribe`
+      );
 
       privateSCL.setAttributeNS(TPNS, 'iedName', iedName);
 
@@ -195,51 +205,69 @@ export default class NetworkData extends LitElement {
         mac.textContent = addressMac.textContent;
         privateSCL.appendChild(mac);
       }
-
       // TODO: Should we include APPIDs?
-      // const appId = address.querySelector('P[type="APPID"]');
-      // if (appId) {
-      //   const app = this.doc.createElementNS(TPNS, 'P');
-      //   app.setAttribute('type', 'APPID');
-      //   app.setAttributeNS(XSINS, 'type', 'tP_APPID');
-      //   app.textContent = appId.textContent;
-      // }
 
       // only proceed if there is something to write
-      if (
-        [addressVlan, addressVlanPriority, addressMac].every(
-          addr => addr === null
-        )
-      ) {
+      if (!(addressVlan || addressVlanPriority || addressMac)) {
         console.log(`Missing addresses for ${cb}`);
         return;
       }
 
-      receivingIeds.forEach(ied => {
-        const iedNameRx = ied.getAttribute('name');
-        const subNetworkName = subNetwork?.getAttribute('name');
-        const connectedAp = this.doc.querySelector(
-          `:root > Communication > SubNetwork[name="${subNetworkName}"] > ConnectedAP[iedName="${iedNameRx}"]`
+      receivingIeds.forEach(ap => {
+        const apIedNameRx = ap.closest('IED')!.getAttribute('name');
+        const apName = ap.getAttribute('name')!;
+
+        const addressSubNetworkName = addressSubNetwork!.getAttribute('name')!;
+        const subNetwork = this.doc.querySelector(
+          `:root > Communication > SubNetwork[name="${addressSubNetworkName}"]`
+        )!;
+
+        if (!subNetwork) return;
+
+        const subNetworkName = subNetwork.getAttribute('name');
+        const connectedAp = subNetwork.querySelector(
+          `ConnectedAP[iedName="${apIedNameRx}"][apName="${apName}"]`
         );
 
-        const edit: Insert = {
-          parent: connectedAp,
-          node: privateSCL.cloneNode(true),
-          reference: connectedAp.firstElementChild,
-        };
+        let edit: Insert;
 
         if (connectedAp) {
-          edits.push(edit);
+          edit = {
+            parent: connectedAp,
+            node: privateSCL.cloneNode(true),
+            reference: connectedAp.firstElementChild,
+          };
           console.log(`dispatch edit`, edit.parent, privateSCL);
         } else {
-          createElement(this.doc, 'ConnectedAP');
-          //
+          // create new access point
+          const newConnectedAp = createElement(this.doc, 'ConnectedAP', {
+            apName,
+            iedName: apIedNameRx,
+          });
+          newConnectedAp.appendChild(privateSCL.cloneNode(true));
+
+          edit = {
+            parent: subNetwork,
+            node: newConnectedAp,
+            reference: null,
+          };
+
           console.log(
-            `Creating ConnectedAP for IED ${iedNameRx} and SubNetwork ${subNetworkName}`
+            `Creating ConnectedAP for IED ${apIedNameRx}, Access Point ${apName} and SubNetwork ${subNetworkName}`
           );
         }
+        this.dispatchEvent(newEditEvent(edit));
+        this.successMessage.show();
       });
     });
-    this.dispatchEvent(newEditEvent(edits));
+  }
+
+  render(): TemplateResult {
+    return html`<mwc-snackbar
+      id="successMessage"
+      leading
+      labelText="Network data updated"
+    >
+    </mwc-snackbar>`;
   }
 }

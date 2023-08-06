@@ -11,7 +11,7 @@
 :uri-openscd: https://github.com/openscd
 :uri-openscd-app: https://openscd.github.io
 :uri-openscd-core-app: https://openscd.github.io/open-scd/
-:uri-openscd-core-plugin: pass:v[https://openscd.github.io/open-scd/?plugins=%7B%22menu%22:%5B%7B%22name%22:%22Open%20File%22,%22translations%22:%7B%22de%22:%22Datei%20%C3%B6ffnen%22%7D,%22icon%22:%22folder_open%22,%22active%22:true,%22src%22:%22https://openscd.github.io/oscd-open/oscd-open.js%22%7D,%7B%22name%22:%22Save%20File%22,%22translations%22:%7B%22de%22:%22Datei%20speichern%22%7D,%22icon%22:%22save%22,%22active%22:true,%22src%22:%22https://openscd.github.io/oscd-save/oscd-save.js%22%7D,%7B%22name%22:%22Communications%20Export%22,%22translations%22:%7B%22de%22:%22Kommunikationsexport%22,%22pt%22:%22Exporta%C3%A7%C3%A3o%20de%20Comunica%C3%A7%C3%B5es%22%7D,%22icon%22:%22sim_card_download%22,%22active%22:true,%22requireDoc%22:true,%22src%22:%22/dist/oscd-network-data.js%22%7D%5D,%22editor%22:%5B%5D%7D]
+:uri-openscd-core-plugin: pass:v[https://openscd.github.io/open-scd/?plugins=%7B%22menu%22:%5B%7B%22name%22:%22Open%20File%22,%22translations%22:%7B%22de%22:%22Datei%20%C3%B6ffnen%22%7D,%22icon%22:%22folder_open%22,%22active%22:true,%22src%22:%22https://openscd.github.io/oscd-open/oscd-open.js%22%7D,%7B%22name%22:%22Save%20File%22,%22translations%22:%7B%22de%22:%22Datei%20speichern%22%7D,%22icon%22:%22save%22,%22active%22:true,%22src%22:%22https://openscd.github.io/oscd-save/oscd-save.js%22%7D,%7B%22name%22:%22Network%20Data%22,%22icon%22:%22hub%22,%22active%22:true,%22requireDoc%22:true,%22src%22:%22/dist/oscd-network-data.js%22%7D%5D,%22editor%22:%5B%5D%7D]
 // TIP:
 // the above URI is done by taking the plugins object from demo.html (without strings) and updating to the correct {uri-ci-bundle} value and then in the browser calling:
 // console.log(`https://openscd.github.io/open-scd/?plugins=${encodeURI(JSON.stringify(plugins))}`)
@@ -25,11 +25,14 @@
 
 == What is this?
 
-This plugin is intended to allow exporting of supplementary communications data using a `Private` element and custom namespace.
+This plugin provides declarative information about GOOSE and Sampled Value subscriptions within the Communication section of an SCL file (which normally only provides publishing information).
+The purpose is to assist in development of network configuration information for IEC 61850 without requiring significant processing.
 
-Two `Private` elements are provided, `Transpower-GSE-Receive` and `Transpower-SMV-Receive` which "mimic" the performance of the SCL defined `GSE` and `SMV` elements.
+* It does this by exporting of communications data using a `Private` element and custom namespace.
 
-The intention of this is to allow declarative expression of communications information necessary to build network configuration.
+* Two `Private` elements are used, `Transpower-GSE-Subscribe` and `Transpower-SMV-Subscribe` which have identical attribues to the IEC 61850 standard defined SCL `GSE` and `SMV` elements.
+
+Technically:
 
 * This is a plugin for {uri-openscd-core}[open-scd-core], the core
 editor engine for {uri-openscd}[OpenSCD].
@@ -45,27 +48,25 @@ Feel free to log issues to request fixes, improvements or new features.
 
 == How it works
 
-. The purpose is to provide declarative information about communications which can be extracted for allow scripting for building of network configuration.
+. Two `Private` elements are provided, `Transpower-GSE-Subscribe` and `Transpower-SMV-Subscribe` which "mimic" the performance of the SCL defined `GSE` and `SMV` elements.
 
-. Two `Private` elements are provided, `Transpower-GSE-Receive` and `Transpower-SMV-Receive` which "mimic" the performance of the SCL defined `GSE` and `SMV` elements.
+. For each subscribing control block for an IED, one of these elements is created, using the `etpc` namespace: `pass:[https://transpower.co.nz/SCL/SCD/Communication/v1]`. 
+They are created within the appropriate `ConnectedAP`, if it exists, otherwise a new ConnectedAP is created.
 
-. For each subscribing control block for an IED, one of these elements is created, using the `etp` namespace: `pass:[https://transpower.co.nz/SCL/SCD/Communication/v1]`
-
-. Below, an example is given:
+. Below, an example is given for a GOOSE message:
 +
 [source,xml]
 ----
-<Private type="Transpower-GSE-Receive" etp:iedName="XAT_T1_P1" etp:cbName="GoCB16" etp:ldInst="Master">
-    <etp:P type="VLAN-ID" xsi:type="tP_VLAN-ID">000</etp:P>
-    <etp:P type="VLAN-PRIORITY" xsi:type="tP_VLAN-PRIORITY">4</etp:P>
-    <etp:P type="MAC-Address" xsi:type="tP_MAC-Address">01-0C-CD-01-00-06</etp:P>
+<Private type="Transpower-GSE-Subscribe" etpc:iedName="XAT_T1_P1" etpc:cbName="GoCB16" etpc:ldInst="Master">
+    <etpc:P type="VLAN-ID" xsi:type="tP_VLAN-ID">000</etpc:P>
+    <etpc:P type="VLAN-PRIORITY" xsi:type="tP_VLAN-PRIORITY">4</etpc:P>
+    <etpc:P type="MAC-Address" xsi:type="tP_MAC-Address">01-0C-CD-01-00-06</etpc:P>
 </Private>
 ----
 
 . In general, the element and attributes match those for the `GSE` and `SMV` as defined in the standard, however:
 
-* An additional field is used to include the name of the publishing IED, `etp:iedName`.
-* These elements are only added if a prior `ConnectedAP` exists.
+* An additional field is used to include the name of the publishing IED, `etpc:iedName`.
 * The `SubNetwork` must match between publishers and subscribers for these elements to be written.
 * Only `VLAN-ID`, `VLAN-PRIORITY` and `MAC-Address` elements are added (Question: what else should be added? `APPID`?).
 
@@ -161,7 +162,7 @@ Each plugin appears in the following form:
 {
     name: '{plugin-name}', // <.>
     src: '{uri-ci-bundle}', //  <.>
-    icon: 'sim_card_download', // <.>
+    icon: 'hub', // <.>
     default: true, // <.>
     kind: 'menu', // <.>
     requireDoc: true, // <.>
@@ -201,10 +202,10 @@ include::demo/index.html[tag=plugins]
 {
   "name": "{plugin-name}", // <.>
   "translations": { // <.>
-    "de": "Kommunikationsexport", 
-    "pt":"Exportação de Comunicações"
+    "de": "{plugin-name} in German!", 
+    "pt":"{plugin-name} in Portuguese!}"
   },
-  "icon": "sim_card_download", // <.>
+  "icon": "hub", // <.>
   "active": true, // <.>
   "requireDoc": true, // <.>
   "src": "/dist/oscd-network-data.js" // <.>

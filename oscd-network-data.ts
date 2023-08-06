@@ -70,6 +70,9 @@ export default class NetworkData extends LitElement {
   @property({ attribute: false })
   docName!: string;
 
+  @property({ attribute: false })
+  subscriptionCount = 0;
+
   @query('#successMessage')
   successMessage!: Snackbar;
 
@@ -146,9 +149,12 @@ export default class NetworkData extends LitElement {
     ).map(element => ({ node: element }));
 
     edits.push(removePrivates);
+    if (removePrivates) console.log(`Removed ${removePrivates.length}`);
 
     this.dispatchEvent(newEditEvent(edits));
 
+    this.subscriptionCount = 0;
+    let addedSubscriptionCount = 0;
     sortedControlBlocksAndAPs.forEach((receivingIeds, cb) => {
       const address = getCommAddress(cb);
 
@@ -256,17 +262,25 @@ export default class NetworkData extends LitElement {
             `Creating ConnectedAP for IED ${apIedNameRx}, Access Point ${apName} and SubNetwork ${subNetworkName}`
           );
         }
+
         this.dispatchEvent(newEditEvent(edit));
-        this.successMessage.show();
+        addedSubscriptionCount += 1;
       });
     });
+    this.subscriptionCount = addedSubscriptionCount;
+    this.successMessage.show();
+  }
+
+  getEditCount(): number {
+    return this.subscriptionCount;
   }
 
   render(): TemplateResult {
     return html`<mwc-snackbar
       id="successMessage"
       leading
-      labelText="Network data updated"
+      labelText="Network data updated (${this
+        .subscriptionCount} items written)."
     >
     </mwc-snackbar>`;
   }

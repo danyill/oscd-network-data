@@ -6,7 +6,14 @@ import '@material/mwc-dialog';
 import '@material/mwc-formfield';
 import '@material/mwc-switch';
 
-import { Edit, Insert, Update, newEditEvent } from '@openscd/open-scd-core';
+import {
+  Edit,
+  Insert,
+  Remove,
+  Update,
+  newEditEvent,
+} from '@openscd/open-scd-core';
+import { createElement } from '@openenergytools/scl-lib/dist/foundation/utils';
 
 // from scl-lib
 /** @returns control block or null for a given external reference */
@@ -62,30 +69,45 @@ export default class NetworkData extends LitElement {
   docName!: string;
 
   async run(): Promise<void> {
-    const controlBlocks = new Map<Element, Element[]>();
+    // fetch unique control blocks and subscribing IEDs
+    const controlBlocksAndIeds = new Map<Element, Element[]>();
     Array.from(this.doc.querySelectorAll('ExtRef')).forEach(extRef => {
       const cb = sourceControlBlock(extRef);
       const ied = extRef.closest('IED')!;
 
       if (!cb) return;
 
-      if (controlBlocks.has(cb)) {
-        controlBlocks.set(cb, [...controlBlocks.get(cb)!, ied]);
-      } else {
-        controlBlocks.set(cb, [ied]);
+      // need to store IED and ConnectedAP apName
+      const cbAlreadyExists = controlBlocksAndIeds.has(cb);
+      const cbHasIed = controlBlocksAndIeds.get(cb)?.includes(ied);
+      if (cbAlreadyExists && !cbHasIed) {
+        controlBlocksAndIeds.set(cb, [...controlBlocksAndIeds.get(cb)!, ied]);
+      } else if (!cbAlreadyExists) {
+        controlBlocksAndIeds.set(cb, [ied]);
       }
+    });
+
+    // provide stable order -- GOOSE then SV, sorted by IED and control block name
+    const sortedControlBlocksAndIeds = new Map(
+      [...controlBlocksAndIeds].sort((first, second) => {
+        const firstKey = first[0];
+        const secondKey = second[0];
+        const comparison = (e: Element) =>
+          `${e.tagName} ${e
+            .closest('IED')!
+            .getAttribute('name')} ${e.getAttribute('name')}`;
+        return comparison(secondKey).localeCompare(comparison(firstKey));
+      })
+    );
+
+    // sort the order IEDs are processed
+    sortedControlBlocksAndIeds.forEach((value, key) => {
+      sortedControlBlocksAndIeds.set(key, value.sort());
     });
 
     const edits: Edit[] = [];
 
-    const removePrivates = Array.from(
-      this.doc.querySelectorAll(
-        'Private[type="Transpower-GSE-Receive"], Private[type="Transpower-SMV-Receive"]'
-      )
-    ).map(element => ({ node: element }));
-
-    edits.push(removePrivates);
-
+    // update namespaces for Transpower and schema instances
     const namespaceUpdate: Update = {
       element: this.doc.documentElement,
       attributes: {},
@@ -112,9 +134,22 @@ export default class NetworkData extends LitElement {
     if (!(Object.entries(namespaceUpdate.attributes).length === 0))
       edits.push(namespaceUpdate);
 
-    Array.from(controlBlocks.keys()).forEach(cb => {
-      const receivingIeds = controlBlocks.get(cb)!;
+    const removePrivates: Remove[] = Array.from(
+      this.doc.querySelectorAll(
+        'Private[type="Transpower-GSE-Receive"], Private[type="Transpower-SMV-Receive"]'
+      )
+    ).map(element => ({ node: element }));
+
+    edits.push(removePrivates);
+
+    sortedControlBlocksAndIeds.forEach((receivingIeds, cb) => {
       const address = getCommAddress(cb);
+
+      if (!address) {
+        console.log(`No address for ${cb}`);
+        return;
+      }
+
       const subNetwork = address.closest('SubNetwork');
       const iedName = cb.closest('IED')!.getAttribute('name')!;
 
@@ -175,8 +210,10 @@ export default class NetworkData extends LitElement {
         [addressVlan, addressVlanPriority, addressMac].every(
           addr => addr === null
         )
-      )
+      ) {
+        console.log(`Missing addresses for ${cb}`);
         return;
+      }
 
       receivingIeds.forEach(ied => {
         const iedNameRx = ied.getAttribute('name');
@@ -185,17 +222,24 @@ export default class NetworkData extends LitElement {
           `:root > Communication > SubNetwork[name="${subNetworkName}"] > ConnectedAP[iedName="${iedNameRx}"]`
         );
 
+        const edit: Insert = {
+          parent: connectedAp,
+          node: privateSCL.cloneNode(true),
+          reference: connectedAp.firstElementChild,
+        };
+
         if (connectedAp) {
-          const edit: Insert = {
-            parent: connectedAp,
-            node: privateSCL,
-            reference: null,
-          };
           edits.push(edit);
+          console.log(`dispatch edit`, edit.parent, privateSCL);
+        } else {
+          createElement(this.doc, 'ConnectedAP');
+          //
+          console.log(
+            `Creating ConnectedAP for IED ${iedNameRx} and SubNetwork ${subNetworkName}`
+          );
         }
       });
     });
-
     this.dispatchEvent(newEditEvent(edits));
   }
 }

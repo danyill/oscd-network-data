@@ -1,11 +1,15 @@
-import { LitElement } from 'lit';
+import { LitElement, TemplateResult } from 'lit';
 import '@material/mwc-button';
 import '@material/mwc-dialog';
 import '@material/mwc-formfield';
+import '@material/mwc-snackbar';
 import '@material/mwc-switch';
+import type { Snackbar } from '@material/mwc-snackbar';
 export default class NetworkData extends LitElement {
     /** The document being edited as provided to plugins by [[`OpenSCD`]]. */
     doc: XMLDocument;
     docName: string;
+    successMessage: Snackbar;
     run(): Promise<void>;
+    render(): TemplateResult;
 }

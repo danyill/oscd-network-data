@@ -180,7 +180,7 @@ export default class NetworkData extends LitElement {
       const cbName = cb.getAttribute('name');
       if (cbName) privateSCL.setAttributeNS(TPNS, 'cbName', cbName);
 
-      const ldInst = cb.getAttribute('ldInst');
+      const ldInst = address.getAttribute('ldInst');
       if (ldInst) privateSCL.setAttributeNS(TPNS, 'ldInst', ldInst);
 
       const addressVlan = address.querySelector('P[type="VLAN-ID"]');

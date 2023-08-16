@@ -53,9 +53,12 @@ function getCommAddress(ctrlBlock: Element): Element {
 
   const ctrlLdInst = ctrlBlock.closest('LDevice')!.getAttribute('inst');
   const addressTag = ctrlBlock.tagName === 'GSEControl' ? 'GSE' : 'SMV';
+  const iedName = ctrlBlock.closest('IED')!.getAttribute('name');
+  const apName = ctrlBlock.closest('AccessPoint')?.getAttribute('name');
+
   const cbName = ctrlBlock.getAttribute('name');
   return doc.querySelector(
-    `${addressTag}[ldInst="${ctrlLdInst}"][cbName="${cbName}"]`
+    `Communication > SubNetwork > ConnectedAP[iedName="${iedName}"][apName="${apName}"] > ${addressTag}[ldInst="${ctrlLdInst}"][cbName="${cbName}"]`
   )!;
 }
 

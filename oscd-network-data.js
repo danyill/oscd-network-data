@@ -5409,15 +5409,34 @@ function sourceControlBlock(extRef) {
             cBlock.getAttribute('name') === srcCBName;
     })) !== null && _a !== void 0 ? _a : null);
 }
+/** @returns the cartesian product of `arrays` */
+function crossProduct(...arrays) {
+    return arrays.reduce((a, b) => a.flatMap(d => b.map(e => [d, e].flat())), [[]]);
+}
 function getCommAddress(ctrlBlock) {
     var _a;
     const doc = ctrlBlock.ownerDocument;
     const ctrlLdInst = ctrlBlock.closest('LDevice').getAttribute('inst');
     const addressTag = ctrlBlock.tagName === 'GSEControl' ? 'GSE' : 'SMV';
-    const iedName = ctrlBlock.closest('IED').getAttribute('name');
+    const ied = ctrlBlock.closest('IED');
+    const iedName = ied.getAttribute('name');
     const apName = (_a = ctrlBlock.closest('AccessPoint')) === null || _a === void 0 ? void 0 : _a.getAttribute('name');
     const cbName = ctrlBlock.getAttribute('name');
-    return doc.querySelector(`Communication > SubNetwork > ConnectedAP[iedName="${iedName}"][apName="${apName}"] > ${addressTag}[ldInst="${ctrlLdInst}"][cbName="${cbName}"]`);
+    let apNames = [];
+    const serverAts = ied.querySelectorAll(`AccessPoint > ServerAt[apName="${apName}"`);
+    if (serverAts) {
+        const serverAtNames = Array.from(serverAts).map(ap => ap.closest('AccessPoint').getAttribute('name'));
+        apNames = [apName, ...serverAtNames];
+    }
+    else {
+        apNames = [apName];
+    }
+    const connectedAps = `Communication > SubNetwork > ConnectedAP[iedName="${iedName}"]`;
+    const connectedApNames = apNames.map(ap => `[apName="${ap}"]`);
+    const addressElement = `${addressTag}[ldInst="${ctrlLdInst}"][cbName="${cbName}"]`;
+    return doc.querySelector(crossProduct([connectedAps], connectedApNames, ['>'], [addressElement])
+        .map(strings => strings.join(''))
+        .join(','));
 }
 const TPNS = 'https://transpower.co.nz/SCL/SCD/Communication/v1';
 const XSINS = 'http://www.w3.org/2001/XMLSchema-instance';
@@ -5601,5 +5620,5 @@ __decorate([
     i$2('#successMessage')
 ], NetworkData.prototype, "successMessage", void 0);
 
-export { NetworkData as default };
+export { crossProduct, NetworkData as default };
 //# sourceMappingURL=oscd-network-data.js.map

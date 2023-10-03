@@ -48,7 +48,7 @@ Feel free to log issues to request fixes, improvements or new features.
 
 == How it works
 
-. Two `Private` elements are provided, `Transpower-GSE-Subscribe` and `Transpower-SMV-Subscribe` which "mimic" the performance of the SCL defined `GSE` and `SMV` elements.
+. Two `Private` elements are provided, `Transpower-GSE-Subscribe` and `Transpower-SMV-Subscribe` which "mimic" the performance of the IEC 61850 SCL standard (IEC 61850-6) defined `GSE` and `SMV` elements.
 
 . For each subscribing control block for an IED, one of these elements is created, using the `etpc` namespace: `pass:[https://transpower.co.nz/SCL/SCD/Communication/v1]`. 
 They are created within the appropriate `ConnectedAP`, if it exists, otherwise a new ConnectedAP is created.
@@ -67,7 +67,10 @@ They are created within the appropriate `ConnectedAP`, if it exists, otherwise a
 . In general, the element and attributes match those for the `GSE` and `SMV` as defined in the standard, however:
 
 * An additional field is used to include the name of the publishing IED, `etpc:iedName`.
-* The `SubNetwork` must match between publishers and subscribers for these elements to be written.
+
+* The `SubNetwork` must match between publishers and subscribers for these elements to be written. 
+This plugin does not create new `SubNetwork` elements as there should not be a need for this.
+
 * Only `VLAN-ID`, `VLAN-PRIORITY` and `MAC-Address` elements are added (Question: what else should be added? `APPID`?).
 
 == Using the Plugin

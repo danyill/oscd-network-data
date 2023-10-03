@@ -59,17 +59,46 @@ export function isPublic(element: Element): boolean {
   return !element.closest('Private');
 }
 
+/** @returns the cartesian product of `arrays` */
+export function crossProduct<T>(...arrays: T[][]): T[][] {
+  return arrays.reduce<T[][]>(
+    (a, b) => <T[][]>a.flatMap(d => b.map(e => [d, e].flat())),
+    [[]]
+  );
+}
+
 function getCommAddress(ctrlBlock: Element): Element {
   const doc = ctrlBlock.ownerDocument;
 
   const ctrlLdInst = ctrlBlock.closest('LDevice')!.getAttribute('inst');
   const addressTag = ctrlBlock.tagName === 'GSEControl' ? 'GSE' : 'SMV';
-  const iedName = ctrlBlock.closest('IED')!.getAttribute('name');
+  const ied = ctrlBlock.closest('IED')!;
+  const iedName = ied.getAttribute('name');
   const apName = ctrlBlock.closest('AccessPoint')?.getAttribute('name');
 
   const cbName = ctrlBlock.getAttribute('name');
+
+  let apNames = [];
+  const serverAts = ied.querySelectorAll(
+    `AccessPoint > ServerAt[apName="${apName}"`
+  );
+  if (serverAts) {
+    const serverAtNames = Array.from(serverAts).map(ap =>
+      ap.closest('AccessPoint')!.getAttribute('name')
+    );
+    apNames = [apName, ...serverAtNames];
+  } else {
+    apNames = [apName];
+  }
+
+  const connectedAps = `Communication > SubNetwork > ConnectedAP[iedName="${iedName}"]`;
+  const connectedApNames = apNames.map(ap => `[apName="${ap}"]`);
+  const addressElement = `${addressTag}[ldInst="${ctrlLdInst}"][cbName="${cbName}"]`;
+
   return doc.querySelector(
-    `Communication > SubNetwork > ConnectedAP[iedName="${iedName}"][apName="${apName}"] > ${addressTag}[ldInst="${ctrlLdInst}"][cbName="${cbName}"]`
+    crossProduct([connectedAps], connectedApNames, ['>'], [addressElement])
+      .map(strings => strings.join(''))
+      .join(',')
   )!;
 }
 
@@ -87,9 +116,10 @@ export default class NetworkData extends LitElement {
   @property({ attribute: false })
   subscriptionCount = 0;
 
+  apCount: number = 0;
+
   @query('#successMessage')
   successMessage!: Snackbar;
-  apCount: number;
 
   /**
    * Updates namespaces to include the XML schema instance and the

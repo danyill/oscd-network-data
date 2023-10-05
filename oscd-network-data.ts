@@ -18,36 +18,8 @@ import { createElement } from '@openenergytools/scl-lib/dist/foundation/utils';
 import type { Snackbar } from '@material/mwc-snackbar';
 import { getReference } from '@openenergytools/scl-lib';
 
-// from scl-lib
-/** @returns control block or null for a given external reference */
-function sourceControlBlock(extRef: Element): Element | null {
-  const [iedName, srcLDInst, srcPrefix, srcLNClass, srcLNInst, srcCBName] = [
-    'iedName',
-    'srcLDInst',
-    'srcPrefix',
-    'srcLNClass',
-    'srcLNInst',
-    'srcCBName',
-  ].map(attr => extRef.getAttribute(attr) ?? '');
-
-  return (
-    Array.from(
-      extRef.ownerDocument.querySelectorAll(
-        `IED[name="${iedName}"] ReportControl, 
-          IED[name="${iedName}"] GSEControl, 
-          IED[name="${iedName}"] SampledValueControl`
-      )
-    ).find(
-      cBlock =>
-        cBlock.closest('LDevice')!.getAttribute('inst') === srcLDInst &&
-        (cBlock.closest('LN, LN0')!.getAttribute('prefix') ?? '') ===
-          srcPrefix &&
-        cBlock.closest('LN, LN0')!.getAttribute('lnClass') === srcLNClass &&
-        cBlock.closest('LN, LN0')!.getAttribute('inst') === srcLNInst &&
-        cBlock.getAttribute('name') === srcCBName
-    ) ?? null
-  );
-}
+import { getCommAddress } from './getCommAddress.js';
+import { sourceControlBlock } from './sourceControlBlock.js';
 
 /**
  * Ensures the nearest element is not within a Private element.
@@ -57,49 +29,6 @@ function sourceControlBlock(extRef: Element): Element | null {
  */
 export function isPublic(element: Element): boolean {
   return !element.closest('Private');
-}
-
-/** @returns the cartesian product of `arrays` */
-export function crossProduct<T>(...arrays: T[][]): T[][] {
-  return arrays.reduce<T[][]>(
-    (a, b) => <T[][]>a.flatMap(d => b.map(e => [d, e].flat())),
-    [[]]
-  );
-}
-
-function getCommAddress(ctrlBlock: Element): Element {
-  const doc = ctrlBlock.ownerDocument;
-
-  const ctrlLdInst = ctrlBlock.closest('LDevice')!.getAttribute('inst');
-  const addressTag = ctrlBlock.tagName === 'GSEControl' ? 'GSE' : 'SMV';
-  const ied = ctrlBlock.closest('IED')!;
-  const iedName = ied.getAttribute('name');
-  const apName = ctrlBlock.closest('AccessPoint')?.getAttribute('name');
-
-  const cbName = ctrlBlock.getAttribute('name');
-
-  let apNames = [];
-  const serverAts = ied.querySelectorAll(
-    `AccessPoint > ServerAt[apName="${apName}"`
-  );
-  if (serverAts) {
-    const serverAtNames = Array.from(serverAts).map(ap =>
-      ap.closest('AccessPoint')!.getAttribute('name')
-    );
-    apNames = [apName, ...serverAtNames];
-  } else {
-    apNames = [apName];
-  }
-
-  const connectedAps = `Communication > SubNetwork > ConnectedAP[iedName="${iedName}"]`;
-  const connectedApNames = apNames.map(ap => `[apName="${ap}"]`);
-  const addressElement = `${addressTag}[ldInst="${ctrlLdInst}"][cbName="${cbName}"]`;
-
-  return doc.querySelector(
-    crossProduct([connectedAps], connectedApNames, ['>'], [addressElement])
-      .map(strings => strings.join(''))
-      .join(',')
-  )!;
 }
 
 const TPNS = 'https://transpower.co.nz/SCL/SCD/Communication/v1';
@@ -207,9 +136,9 @@ export default class NetworkData extends LitElement {
 
     // only proceed if there is something to write
     if (!(addressVlan || addressVlanPriority || addressMac)) {
-      return privateSCL;
+      return undefined;
     }
-    return undefined;
+    return privateSCL;
   }
 
   /**
@@ -337,13 +266,14 @@ export default class NetworkData extends LitElement {
     // now build addresses from scratch
 
     this.subscriptionCount = 0;
-    this.apCount = 0;
 
     let addedSubscriptionCount = 0;
-    let apCount = 0;
 
     controlBlocksByAP.forEach((receivingAccessPoints, cb) => {
       const address = getCommAddress(cb);
+
+      // missing address
+      if (!address) return;
 
       const privateSCL = this.createSubscribedAddressContent(address, cb);
 
@@ -352,7 +282,6 @@ export default class NetworkData extends LitElement {
 
       receivingAccessPoints.forEach(ap => {
         const edit = this.getCommunicationEdit(ap, address, privateSCL);
-        apCount += 1;
 
         if (edit) {
           this.dispatchEvent(newEditEvent(edit));
@@ -361,7 +290,7 @@ export default class NetworkData extends LitElement {
       });
     });
     this.subscriptionCount = addedSubscriptionCount;
-    this.apCount = apCount;
+
     this.successMessage.show();
   }
 
@@ -374,8 +303,7 @@ export default class NetworkData extends LitElement {
       id="successMessage"
       leading
       labelText="Network data updated (${this
-        .subscriptionCount} items written to the Communication section for ${this
-        .apCount} Access Points)."
+        .subscriptionCount} items written to the Communication section)."
     >
     </mwc-snackbar>`;
   }

@@ -1,5 +1,5 @@
 = OpenSCD Plugin: {plugin-name} 
-:plugin-name: Networking Data
+:plugin-name: Add Networking Data
 :sectnums:
 :sectlinks:
 :toc:
@@ -34,11 +34,9 @@ The purpose is to assist in development of network configuration information for
 
 Technically:
 
-* This is a plugin for {uri-openscd-core}[open-scd-core], the core
-editor engine for {uri-openscd}[OpenSCD].
+* This is a plugin for {uri-openscd-core}[open-scd-core], the core editor engine for {uri-openscd}[OpenSCD].
 
-* This plugin is a web component and follows the
-{uri-openwc}[open-wc] recommendations.
+* This plugin is a web component and follows the {uri-openwc}[open-wc] recommendations.
 
 * This plugin uses the link:LICENSE[Apache License] and is intended for you to use, study, share and improve.
 

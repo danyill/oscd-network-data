@@ -49,16 +49,18 @@ Feel free to log issues to request fixes, improvements or new features.
 . Two `Private` elements are provided, `Transpower-GSE-Subscribe` and `Transpower-SMV-Subscribe` which "mimic" the performance of the IEC 61850 SCL standard (IEC 61850-6) defined `GSE` and `SMV` elements.
 
 . For each subscribing control block for an IED, one of these elements is created, using the `etpc` namespace: `pass:[https://transpower.co.nz/SCL/SCD/Communication/v1]`. 
-They are created within the appropriate `ConnectedAP`, if it exists, otherwise a new ConnectedAP is created.
+They are created within the appropriate `ConnectedAP`, if it exists, otherwise a new `ConnectedAP` is created.
 
 . Below, an example is given for a GOOSE message:
 +
 [source,xml]
 ----
 <Private type="Transpower-GSE-Subscribe" etpc:iedName="XAT_T1_P1" etpc:cbName="GoCB16" etpc:ldInst="Master">
-    <etpc:P type="VLAN-ID" xsi:type="tP_VLAN-ID">000</etpc:P>
-    <etpc:P type="VLAN-PRIORITY" xsi:type="tP_VLAN-PRIORITY">4</etpc:P>
-    <etpc:P type="MAC-Address" xsi:type="tP_MAC-Address">01-0C-CD-01-00-06</etpc:P>
+    <etpc:Address>
+      <etpc:P type="VLAN-ID" xsi:type="tP_VLAN-ID">000</etpc:P>
+      <etpc:P type="VLAN-PRIORITY" xsi:type="tP_VLAN-PRIORITY">4</etpc:P>
+      <etpc:P type="MAC-Address" xsi:type="tP_MAC-Address">01-0C-CD-01-00-06</etpc:P>
+    </etpc:Address>
 </Private>
 ----
 

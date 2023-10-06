@@ -18,21 +18,15 @@ import { createElement } from '@openenergytools/scl-lib/dist/foundation/utils';
 import type { Snackbar } from '@material/mwc-snackbar';
 import { getReference } from '@openenergytools/scl-lib';
 
-import { getCommAddress } from './getCommAddress.js';
-import { sourceControlBlock } from './sourceControlBlock.js';
+import { getCommAddress } from './foundation/getCommAddress.js';
 
-/**
- * Ensures the nearest element is not within a Private element.
- *
- * @param element
- * @returns
- */
-export function isPublic(element: Element): boolean {
-  return !element.closest('Private');
-}
+import {
+  TPNS,
+  XSINS,
+  createSubscribedAddress,
+} from './foundation/createSubscribedAddress.js';
 
-const TPNS = 'https://transpower.co.nz/SCL/SCD/Communication/v1';
-const XSINS = 'http://www.w3.org/2001/XMLSchema-instance';
+import { getUsedControlBlocksByAp } from './foundation/getUsedApsByCb.js';
 
 export default class NetworkData extends LitElement {
   /** The document being edited as provided to plugins by [[`OpenSCD`]]. */
@@ -85,62 +79,6 @@ export default class NetworkData extends LitElement {
     return undefined;
   }
 
-  createSubscribedAddressContent(
-    address: Element,
-    controlBLock: Element
-  ): Element | undefined {
-    const privateSCL = this.doc.createElementNS(
-      this.doc.documentElement.namespaceURI,
-      'Private'
-    );
-    privateSCL.setAttribute('type', `Transpower-${address.tagName}-Subscribe`);
-
-    const iedName = controlBLock.closest('IED')!.getAttribute('name')!;
-
-    privateSCL.setAttributeNS(TPNS, 'iedName', iedName);
-
-    const cbName = controlBLock.getAttribute('name');
-    if (cbName) privateSCL.setAttributeNS(TPNS, 'cbName', cbName);
-
-    const ldInst = address.getAttribute('ldInst');
-    if (ldInst) privateSCL.setAttributeNS(TPNS, 'ldInst', ldInst);
-
-    const addressVlan = address.querySelector('P[type="VLAN-ID"]');
-    if (addressVlan) {
-      const vlanId = this.doc.createElementNS(TPNS, 'P');
-      vlanId.setAttribute('type', 'VLAN-ID');
-      vlanId.setAttributeNS(XSINS, 'type', 'tP_VLAN-ID');
-      vlanId.textContent = addressVlan.textContent;
-      privateSCL.appendChild(vlanId);
-    }
-
-    const addressVlanPriority = address.querySelector(
-      'P[type="VLAN-PRIORITY"]'
-    );
-    if (addressVlanPriority) {
-      const vlanPriority = this.doc.createElementNS(TPNS, 'P');
-      vlanPriority.setAttribute('type', 'VLAN-PRIORITY');
-      vlanPriority.setAttributeNS(XSINS, 'type', 'tP_VLAN-PRIORITY');
-      vlanPriority.textContent = addressVlanPriority.textContent;
-      privateSCL.appendChild(vlanPriority);
-    }
-
-    const addressMac = address.querySelector('P[type="MAC-Address"]');
-    if (addressMac) {
-      const mac = this.doc.createElementNS(TPNS, 'P');
-      mac.setAttribute('type', 'MAC-Address');
-      mac.setAttributeNS(XSINS, 'type', 'tP_MAC-Address');
-      mac.textContent = addressMac.textContent;
-      privateSCL.appendChild(mac);
-    }
-
-    // only proceed if there is something to write
-    if (!(addressVlan || addressVlanPriority || addressMac)) {
-      return undefined;
-    }
-    return privateSCL;
-  }
-
   /**
    * Removes existing `Private` address elements in preparation for
    * rewriting.
@@ -160,8 +98,7 @@ export default class NetworkData extends LitElement {
     privateSCL: Element
   ): Insert | undefined {
     const apIedNameRx = ap.closest('IED')!.getAttribute('name');
-    const apName = ap.getAttribute('name')!;
-
+    const apName = address.closest('ConnectedAP')!.getAttribute('apName');
     const addressSubNetwork = address.closest('SubNetwork');
     const addressSubNetworkName = addressSubNetwork!.getAttribute('name')!;
     const subNetwork = this.doc.querySelector(
@@ -201,53 +138,9 @@ export default class NetworkData extends LitElement {
     return edit;
   }
 
-  getControlBlocksByAP(): Map<Element, Element[]> {
-    const controlBlocksAndAPs = new Map<Element, Element[]>();
-
-    Array.from(this.doc.querySelectorAll('Inputs > ExtRef'))
-      .filter(isPublic)
-      .forEach(extRef => {
-        const cb = sourceControlBlock(extRef);
-        const ap = extRef.closest('AccessPoint')!;
-
-        if (!cb) return;
-
-        // need to store the access points
-        const cbAlreadyExists = controlBlocksAndAPs.has(cb);
-        const cbHasIed = controlBlocksAndAPs.get(cb)?.includes(ap);
-
-        if (cbAlreadyExists && !cbHasIed) {
-          controlBlocksAndAPs.set(cb, [...controlBlocksAndAPs.get(cb)!, ap]);
-        } else if (!cbAlreadyExists) {
-          controlBlocksAndAPs.set(cb, [ap]);
-        }
-      });
-
-    // provide stable order -- GOOSE then SV, sorted by IED and control block name
-    const sortedControlBlocksAndAPs = new Map(
-      [...controlBlocksAndAPs].sort((first, second) => {
-        const firstCB = first[0];
-        const secondCB = second[0];
-        const comparison = (e: Element) =>
-          `${e.tagName} ${e
-            .closest('IED')!
-            .getAttribute('name')} ${e.getAttribute('name')}`;
-
-        return comparison(secondCB).localeCompare(comparison(firstCB));
-      })
-    );
-
-    // Sort the order access points are processed in
-    sortedControlBlocksAndAPs.forEach((aps, cb) => {
-      sortedControlBlocksAndAPs.set(cb, aps.sort());
-    });
-
-    return sortedControlBlocksAndAPs;
-  }
-
   async run(): Promise<void> {
     // fetch unique control blocks and the connected APs
-    const controlBlocksByAP = this.getControlBlocksByAP();
+    const controlBlocksByAP = getUsedControlBlocksByAp(this.doc);
 
     const edits: Edit[] = [];
 
@@ -275,7 +168,7 @@ export default class NetworkData extends LitElement {
       // missing address
       if (!address) return;
 
-      const privateSCL = this.createSubscribedAddressContent(address, cb);
+      const privateSCL = createSubscribedAddress(address);
 
       // If there are no addresses to write move to next control block
       if (!privateSCL) return;
@@ -292,10 +185,6 @@ export default class NetworkData extends LitElement {
     this.subscriptionCount = addedSubscriptionCount;
 
     this.successMessage.show();
-  }
-
-  getEditCount(): number {
-    return this.subscriptionCount;
   }
 
   render(): TemplateResult {

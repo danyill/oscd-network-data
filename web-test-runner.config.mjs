@@ -5,7 +5,7 @@ const filteredLogs = [
 ];
 
 export default /** @type {import("@web/test-runner").TestRunnerConfig} */ ({
-  files: 'dist/**/*.spec.js',
+  files: ['dist/**/*.spec.js'],
 
   /** Resolve bare module imports */
   nodeResolve: {

@@ -1,21 +1,20 @@
-export const getCommAddressDoc = `<?xml version="1.0" encoding="UTF-8"?>
-<SCL xmlns="http://www.iec.ch/61850/2003/SCL" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" version="2007" revision="B" release="4">
-	<Header id="Test"/>
-	<Communication>
-		<SubNetwork name="ProcessBus" desc="" type="8-MMS">
-			<ConnectedAP iedName="SMV_Publisher" apName="AP1">
-				<SMV ldInst="CurrentTransformer" cbName="fullSmv">
-					<Address>
-						<P type="MAC-Address" xsi:type="tP_MAC-Address">01-0C-CD-04-00-02</P>
-						<P type="APPID" xsi:type="tP_APPID">0003</P>
-					</Address>
-				</SMV>
-				<SMV ldInst="CurrentTransformer" cbName="voltageOnly">
-					<Address>
-						<P type="MAC-Address" xsi:type="tP_MAC-Address">01-0C-CD-04-00-01</P>
-						<P type="APPID" xsi:type="tP_APPID">0002</P>
-					</Address>
-				</SMV>
+export const sourceControlBlockDoc = `<SCL xmlns="http://www.iec.ch/61850/2003/SCL" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" version="2007" revision="B" release="4">
+<Header id="Test"/>
+<Communication>
+	<SubNetwork name="ProcessBus" desc="" type="8-MMS">
+		<ConnectedAP iedName="SMV_Publisher" apName="AP1">
+			<SMV ldInst="CurrentTransformer" cbName="fullSmv">
+				<Address>
+					<P type="MAC-Address" xsi:type="tP_MAC-Address">01-0C-CD-04-00-02</P>
+					<P type="APPID" xsi:type="tP_APPID">0003</P>
+				</Address>
+			</SMV>
+			<SMV ldInst="CurrentTransformer" cbName="voltageOnly">
+				<Address>
+					<P type="MAC-Address" xsi:type="tP_MAC-Address">01-0C-CD-04-00-01</P>
+					<P type="APPID" xsi:type="tP_APPID">0002</P>
+				</Address>
+			</SMV>
 		</ConnectedAP>
 		<ConnectedAP iedName="GOOSE_Publisher" apName="PP1">
 			<GSE ldInst="QB2_Disconnector" cbName="GOOSE1">
@@ -65,7 +64,7 @@ export const getCommAddressDoc = `<?xml version="1.0" encoding="UTF-8"?>
 		<Server>
 			<Authentication/>
 			<LDevice inst="CurrentTransformer">
-				<LN0 lnClass="LLN0" inst="" lnType="Dummy.LLN0">
+				<LN0 lnClass="LLN0" inst="" prefix="" lnType="Dummy.LLN0">
 					<DataSet name="fullSmvsDataSet">
 						<FCDA ldInst="CurrentTransformer" prefix="L3" lnClass="TCTR" lnInst="3" doName="AmpSv" daName="instMag.i" fc="MX"/>
 						<FCDA ldInst="CurrentTransformer" prefix="L3" lnClass="TCTR" lnInst="3" doName="AmpSv" daName="q" fc="MX"/>
@@ -172,7 +171,7 @@ export const getCommAddressDoc = `<?xml version="1.0" encoding="UTF-8"?>
 		<Server>
 			<Authentication/>
 			<LDevice inst="QB2_Disconnector" desc="Animalia">
-				<LN0 lnClass="LLN0" inst="" lnType="Dummy.LLN0">
+				<LN0 lnClass="LLN0" inst="" prefix="" lnType="Dummy.LLN0">
 					<DataSet name="GOOSE2sDataSet">
 						<FCDA ldInst="QB2_Disconnector" prefix="" lnClass="CSWI" lnInst="1" doName="Pos" daName="stVal" fc="ST"/>
 						<FCDA ldInst="QB2_Disconnector" prefix="" lnClass="CSWI" lnInst="1" doName="Pos" daName="q" fc="ST"/>
@@ -194,6 +193,99 @@ export const getCommAddressDoc = `<?xml version="1.0" encoding="UTF-8"?>
 				<LN prefix="" lnClass="CILO" inst="1" lnType="Dummy.CILO"/>
 				<LN prefix="" lnClass="CSWI" inst="1" lnType="Dummy.CSWI"/>
 				<LN prefix="" lnClass="XSWI" inst="1" lnType="Dummy.XSWI"/>
+			</LDevice>
+		</Server>
+	</AccessPoint>
+</IED>
+<IED name="GOOSE_Subscriber" manufacturer="Dummy">
+	<AccessPoint name="AP1">
+		<Server>
+			<Authentication/>
+			<LDevice inst="Earth_Switch">
+				<LN0 lnClass="LLN0" inst="" lnType="Dummy.LLN0">
+					<Inputs>
+						<ExtRef iedName="GOOSE_Publisher" serviceType="GOOSE" ldInst="QB2_Disconnector" lnClass="CSWI" lnInst="1" prefix="" doName="Pos" daName="stVal" srcLDInst="QB2_Disconnector" srcPrefix="" srcLNClass="LLN0" srcCBName="GOOSE2"/>
+						<ExtRef iedName="GOOSE_Publisher2" serviceType="GOOSE" ldInst="QB2_Disconnector" lnClass="CSWI" lnInst="1" prefix="" doName="Pos" daName="q" srcLDInst="QB2_Disconnector" srcPrefix="" srcLNClass="LLN0" srcCBName="GOOSE2"/>
+					</Inputs>
+				</LN0>
+				<LN prefix="" lnClass="CILO" inst="1" lnType="Dummy.CILO">
+					<Inputs>
+						<ExtRef iedName="SomethingNotPresent" intAddr="Pos;CSWI1/Pos/stVal" desc="Missing IED" serviceType="GOOSE" ldInst="QB2_Disconnector" lnClass="CSWI" lnInst="1" prefix="" doName="Pos" daName="stVal" srcLDInst="QB2_Disconnector" srcPrefix="" srcLNClass="LLN0" srcCBName="GOOSE2"/>
+						<ExtRef iedName="GOOSE_Publisher" intAddr="Pos;CSWI1/Pos/q" desc="Missing attributes" serviceType="GOOSE" ldInst="QB2_Disconnector" lnClass="CSWI" lnInst="1" prefix="" daName="q" srcPrefix="" srcLNClass="LLN0" srcCBName="GOOSE2"/>
+					</Inputs>
+				</LN>
+				<LN prefix="" lnClass="CSWI" inst="1" lnType="Dummy.CSWI">
+					<Inputs>
+						<ExtRef iedName="GOOSE_Publisher" serviceType="GOOSE" ldInst="QB2_Disconnector" lnClass="CSWI" lnInst="1" prefix="" doName="Pos" daName="stVal" srcLDInst="QB2_Disconnector" srcPrefix="" srcLNClass="LLN0" srcCBName="GOOSE2" intAddr="Pos;CSWI1/Pos/stVal" desc="Interlocking.Input2"/>
+						<ExtRef iedName="GOOSE_Publisher" serviceType="GOOSE" ldInst="QB2_Disconnector" lnClass="CSWI" lnInst="1" prefix="" doName="Pos" daName="q" srcLDInst="QB2_Disconnector" srcPrefix="" srcLNClass="LLN0" srcCBName="GOOSE2DoesNotExist" intAddr="Pos;CSWI1/Pos/q" desc="Interlocking.Input2"/>
+						<ExtRef intAddr="someRestrictedExtRef" desc="Restricted To Pos" pLN="CSWI" pDO="Pos" pDA="stVal" pServT="GOOSE"/>
+					</Inputs>
+				</LN>
+				<LN prefix="" lnClass="XSWI" inst="1" lnType="Dummy.XSWI"/>
+			</LDevice>
+		</Server>
+	</AccessPoint>
+</IED>
+<IED xmlns="http://www.iec.ch/61850/2003/SCL" name="SMV_Subscriber" manufacturer="Dummy">
+	<Services>
+		<SupSubscription maxSv="4" maxGo="0"/>
+	</Services>
+	<AccessPoint name="AP1">
+		<Server>
+			<Authentication/>
+			<LDevice inst="Overvoltage">
+				<LN0 lnClass="LLN0" inst="" lnType="Dummy.LLN0"/>
+				<LN prefix="" lnClass="PTRC" inst="1" lnType="Summy.PTRC">
+					<Inputs>
+						<ExtRef intAddr="AmpSv;TCTR1/AmpSv/instMag.i" desc="MeasPoint.CT1"/>
+						<ExtRef intAddr="AmpSv;TCTR1/AmpSv/q" desc="MeasPoint.CT1"/>
+						<ExtRef intAddr="AmpSv;TCTR2/AmpSv/instMag.i" desc="MeasPoint.CT2" iedName="SMV_Publisher" ldInst="CurrentTransformer" prefix="L3" lnClass="TCTR" lnInst="3" doName="AmpSv" daName="instMag.i" srcLDInst="CurrentTransformer" srcPrefix="DoesNotMatch" srcLNClass="LLN0" srcCBName="fullSmv" serviceType="SMV"/>
+						<ExtRef intAddr="AmpSv;TCTR2/AmpSv/q" desc="MeasPoint.CT1"/>
+						<ExtRef intAddr="AmpSv;TCTR3/AmpSv/instMag.i" desc="MeasPoint.CT3" iedName="SMV_Publisher" ldInst="CurrentTransformer" prefix="L3" lnClass="TCTR" lnInst="3" doName="AmpSv" daName="instMag.i" srcLDInst="CurrentTransformer" srcPrefix="" srcLNClass="LLN0" srcCBName="fullSmv" serviceType="SMV"/>
+						<ExtRef intAddr="AmpSv;TCTR3/AmpSv/q" desc="MeasPoint.CT1" serviceType="SMV" iedName="SMV_Publisher" ldInst="CurrentTransformer" prefix="L3" lnClass="TCTR" lnInst="3" doName="AmpSv" daName="q" srcLDInst="CurrentTransformer" srcPrefix="" srcLNClass="LLN0" srcCBName="fullSmv"/>
+						<ExtRef intAddr="sillyLikeA" serviceType="GOOSE"/>
+					</Inputs>
+				</LN>
+			</LDevice>
+			<LDevice inst="Overcurrent">
+				<LN0 lnClass="LLN0" inst="" lnType="Dummy.LLN0"/>
+				<LN prefix="" lnClass="PTRC" inst="1" lnType="Summy.PTRC">
+					<Inputs>
+						<ExtRef intAddr="VolSv;TVTR1/VolSv/instMag.i" desc="MeasPoint.VT1" serviceType="SMV"/>
+						<ExtRef intAddr="VolSv;TVTR1/VolSv/q" desc="MeasPoint.VT1"/>
+						<ExtRef intAddr="VolSv;TVTR2/VolSv/instMag.i" desc="MeasPoint.VT2"/>
+						<ExtRef intAddr="VolSv;TVTR2/VolSv/q" desc="MeasPoint.VT1"/>
+						<ExtRef intAddr="VolSv;TVTR3/VolSv/instMag.i" desc="MeasPoint.VT3"/>
+						<ExtRef intAddr="VolSv;TVTR3/VolSv/q" desc="MeasPoint.VT1"/>
+						<ExtRef intAddr="someRestrictedExtRef" desc="Restricted To AmpSV" pLN="TCTR" pDO="AmpSV" pDA="instMag.i"/>
+					</Inputs>
+				</LN>
+			</LDevice>
+			<LDevice inst="SV_supervision">
+				<LN0 lnClass="LLN0" inst="" lnType="Dummy.LLN0"/>
+				<LN lnClass="LSVS" inst="1" lnType="Dummy.LSVS">
+					<DOI name="SvCBRef">
+						<DAI name="setSrcRef">
+							<Val>SMV_Publisher2CurrentTransformer/LLN0.fullSmv</Val>
+						</DAI>
+					</DOI>
+				</LN>
+				<LN lnClass="LSVS" inst="2" lnType="Dummy.LSVS">
+					<Private type="OpenSCD.create"/>
+					<DOI name="SvCBRef">
+						<DAI name="setSrcRef">
+							<Val>SMV_Publisher2CurrentTransformer/LLN0.voltageOnly</Val>
+						</DAI>
+					</DOI>
+				</LN>
+				<LN lnClass="LSVS" lnType="Dummy.LSVS" inst="3">
+					<Private type="OpenSCD.create"/>
+					<DOI name="SvCBRef">
+						<DAI name="setSrcRef">
+							<Val>SMV_PublisherCurrentTransformer/LLN0.fullSmv</Val>
+						</DAI>
+					</DOI>
+				</LN>
 			</LDevice>
 		</Server>
 	</AccessPoint>

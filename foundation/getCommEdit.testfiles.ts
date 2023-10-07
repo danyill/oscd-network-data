@@ -3,11 +3,13 @@ export const getCommEditDoc = `<?xml version="1.0" encoding="UTF-8"?>
 	<Header id="Test"/>
 	<Communication>
 		<SubNetwork name="ProcessBus" desc="" type="8-MMS">
-			<ConnectedAP iedName="GOOSE_Subscriber" apName="AP1"/>
 			<ConnectedAP iedName="SMV_Subscriber" apName="AP1"/>
 			<ConnectedAP iedName="SMV_Publisher" apName="AP1">
 				<SMV ldInst="CurrentTransformer" cbName="fullSmv">
 					<Address>
+					<P type="MAC-Address" xsi:type="tP_MAC-Address">01-0C-CD-04-00-03</P>
+						<P type="VLAN-ID" xsi:type="tP_VLAN-ID">3EE</P>
+						<P type="VLAN-PRIORITY" xsi:type="tP_VLAN-PRIORITY">4</P>
 						<P type="APPID" xsi:type="tP_APPID">0003</P>
 					</Address>
 				</SMV>

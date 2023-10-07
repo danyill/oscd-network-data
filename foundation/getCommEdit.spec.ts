@@ -1,25 +1,36 @@
-// import { expect } from '@open-wc/testing';
+import { expect } from '@open-wc/testing';
 
-// import { getCommEdit } from './getCommEdit.js';
-// import { getCommEditDoc } from './getCommEdit.testfiles.js';
+import { getCommEdit } from './getCommEdit.js';
+import { getCommEditDoc } from './getCommEdit.testfiles.js';
+import { createSubscribedAddress } from './createSubscribedAddress.js';
 
-// const testDoc = new DOMParser().parseFromString(
-//   getCommEditDoc,
-//   'application/xml'
-// );
+const testDoc = new DOMParser().parseFromString(
+  getCommEditDoc,
+  'application/xml'
+);
 
-// describe('Function to add to Communications section a GSE or SMV Subscribe element', () => {
-//   it('returns control blocks ', () => {
-//     const addr = testDoc.querySelector(
-//       'GSE[ldInst="QB2_Disconnector"][cbName="GOOSE1"]'
-//     )!;
-//     const commEdit = getCommEdit(addr);
+describe('Function to add to Communications section a GSE or SMV Subscribe element', () => {
+  it('creates a ConnectedAP as required ', () => {
+    const addr = testDoc.querySelector('GSE[cbName="GOOSE2"]')!;
+    const privateSCL = createSubscribedAddress(addr)!;
+    const commEdit = getCommEdit(addr, privateSCL, 'GOOSE_Subscriber');
 
-//     console.log(commEdit!.parent);
-//     console.log(commEdit!.node);
-//     console.log(commEdit!.reference);
+    expect(commEdit!.node.nodeName).to.equal('ConnectedAP');
+  });
 
-//     expect(commEdit).is.not.equal(null);
-//     expect(commEdit).to.equal(null);
-//   });
-// });
+  it('creates only the Private if ConnectedAP exists', () => {
+    const addr = testDoc.querySelector('SMV[cbName="fullSmv"]')!;
+    const privateSCL = createSubscribedAddress(addr)!;
+    const commEdit = getCommEdit(addr, privateSCL, 'SMV_Subscriber');
+
+    expect(commEdit!.node.nodeName).to.equal('Private');
+  });
+
+  it('creates nothing if no SubNetwork exists provided', () => {
+    const addr = testDoc.querySelector('SMV[cbName="fullSmv"]')!;
+    const privateSCL = createSubscribedAddress(addr)!;
+    const commEdit = getCommEdit(addr, privateSCL, 'SMV_Subscriber');
+
+    expect(commEdit!.node.nodeName).to.equal('Private');
+  });
+});

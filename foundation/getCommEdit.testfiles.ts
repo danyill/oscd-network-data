@@ -1,4 +1,4 @@
-export const getControlBlocksByApDoc = `<?xml version="1.0" encoding="UTF-8"?>
+export const getCommEditDoc = `<?xml version="1.0" encoding="UTF-8"?>
 <SCL xmlns="http://www.iec.ch/61850/2003/SCL" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" version="2007" revision="B" release="4">
 	<Header id="Test"/>
 	<Communication>
@@ -231,6 +231,12 @@ export const getControlBlocksByApDoc = `<?xml version="1.0" encoding="UTF-8"?>
 				</LDevice>
 			</Server>
 		</AccessPoint>
+		<AccessPoint desc="Process Bus" name="PP1">
+			<ServerAt apName="AP1"/>
+			<Services>
+				<ClientServices goose="true" sv="true"/>
+			</Services>
+		</AccessPoint>
 	</IED>
 	<IED xmlns="http://www.iec.ch/61850/2003/SCL" name="SMV_Subscriber" manufacturer="Dummy">
 		<Services>
@@ -294,6 +300,12 @@ export const getControlBlocksByApDoc = `<?xml version="1.0" encoding="UTF-8"?>
 					</LN>
 				</LDevice>
 			</Server>
+		</AccessPoint>
+		<AccessPoint desc="Process Bus" name="PP1">
+			<ServerAt apName="AP1"/>
+			<Services>
+				<ClientServices goose="true" sv="true"/>
+			</Services>
 		</AccessPoint>
 	</IED>
 	<DataTypeTemplates>

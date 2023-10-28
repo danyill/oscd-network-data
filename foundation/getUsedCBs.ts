@@ -1,4 +1,4 @@
-import { sourceControlBlock } from './sourceControlBlock.js';
+import { sourceControlBlock } from '@openenergytools/scl-lib';
 
 /**
  * Ensures the nearest element is not within a Private element.

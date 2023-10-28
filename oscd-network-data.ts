@@ -8,9 +8,8 @@ import '@material/mwc-snackbar';
 import '@material/mwc-switch';
 
 import { Edit, newEditEvent } from '@openscd/open-scd-core';
+import { controlBlockGseOrSmv } from '@openenergytools/scl-lib';
 import type { Snackbar } from '@material/mwc-snackbar';
-
-import { getCommAddress } from './foundation/getCommAddress.js';
 
 import { createSubscribedAddress } from './foundation/createSubscribedAddress.js';
 
@@ -61,7 +60,7 @@ export default class NetworkData extends LitElement {
     if (!usedCBs) return;
 
     usedCBs.forEach((subscribingIedNames, cb) => {
-      const address = getCommAddress(cb);
+      const address = controlBlockGseOrSmv(cb);
       // missing address
       if (!address) return;
       const privateSCL = createSubscribedAddress(address);

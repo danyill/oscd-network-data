@@ -5375,167 +5375,6 @@ function newEditEvent(edit) {
     });
 }
 
-/** @returns the cartesian product of `arrays` */
-function crossProduct(...arrays) {
-    return arrays.reduce((a, b) => a.flatMap(d => b.map(e => [d, e].flat())), [[]]);
-}
-/**
- * Looks up Communication section GSE or SMV addresses based on the control block
- * within the IED section (GSEControl or SampledValueControl).
- * @param ctrlBlock - SCL control block element (GSEControl or SampledValueControl)
- * @returns SCL GSE or SMV address element or null if not found.
- */
-function getCommAddress(ctrlBlock) {
-    const doc = ctrlBlock.ownerDocument;
-    const ctrlLdInst = ctrlBlock.closest('LDevice').getAttribute('inst');
-    const addressTag = ctrlBlock.tagName === 'GSEControl' ? 'GSE' : 'SMV';
-    const ied = ctrlBlock.closest('IED');
-    const apName = ctrlBlock.closest('AccessPoint').getAttribute('name');
-    let apNames = [];
-    const serverAts = ied.querySelectorAll(`AccessPoint > ServerAt[apName="${apName}"`);
-    if (serverAts.length > 0) {
-        const serverAtNames = Array.from(serverAts).map(ap => ap.closest('AccessPoint').getAttribute('name'));
-        apNames = [apName, ...serverAtNames];
-    }
-    else {
-        apNames = [apName];
-    }
-    const iedName = ied.getAttribute('name');
-    const connectedAps = `:root > Communication > SubNetwork > ConnectedAP[iedName="${iedName}"]`;
-    const connectedApNames = apNames.map(ap => `[apName="${ap}"]`);
-    const cbName = ctrlBlock.getAttribute('name');
-    const addressElement = `${addressTag}[ldInst="${ctrlLdInst}"][cbName="${cbName}"]`;
-    return doc.querySelector(crossProduct([connectedAps], connectedApNames, ['>'], [addressElement])
-        .map(strings => strings.join(''))
-        .join(','));
-}
-
-const TPNS = 'https://transpower.co.nz/SCL/SCD/Communication/v1';
-const XSINS = 'http://www.w3.org/2001/XMLSchema-instance';
-/**
- * Creates either a Transpower-GSE-Subscribe or Transpower-SMV-Subscribe
- * element which has `P` elements which provide the MAC address
- * VLAN-ID and and VLAN-Priority similar to the standard's GSE and SMV
- * elements
- * @param address - SCL address element `GSE` or `SMV`.
- * @returns - an Element or undefined if nothing to create
- */
-function createSubscribedAddress(address) {
-    const privateSCL = address.ownerDocument.createElementNS(address.ownerDocument.documentElement.namespaceURI, 'Private');
-    privateSCL.setAttribute('type', `Transpower-${address.tagName}-Subscribe`);
-    const iedName = address.closest('ConnectedAP').getAttribute('iedName');
-    privateSCL.setAttributeNS(TPNS, 'iedName', iedName);
-    const cbName = address.getAttribute('cbName');
-    if (cbName)
-        privateSCL.setAttributeNS(TPNS, 'cbName', cbName);
-    const ldInst = address.getAttribute('ldInst');
-    if (ldInst)
-        privateSCL.setAttributeNS(TPNS, 'ldInst', ldInst);
-    const newAddress = address.ownerDocument.createElementNS(TPNS, 'Address');
-    privateSCL.appendChild(newAddress);
-    const addressVlan = address.querySelector('P[type="VLAN-ID"]');
-    if (addressVlan) {
-        const vlanId = address.ownerDocument.createElementNS(TPNS, 'P');
-        vlanId.setAttribute('type', 'VLAN-ID');
-        vlanId.setAttributeNS(XSINS, 'type', 'tP_VLAN-ID');
-        vlanId.textContent = addressVlan.textContent;
-        newAddress.appendChild(vlanId);
-    }
-    const addressVlanPriority = address.querySelector('P[type="VLAN-PRIORITY"]');
-    if (addressVlanPriority) {
-        const vlanPriority = address.ownerDocument.createElementNS(TPNS, 'P');
-        vlanPriority.setAttribute('type', 'VLAN-PRIORITY');
-        vlanPriority.setAttributeNS(XSINS, 'type', 'tP_VLAN-PRIORITY');
-        vlanPriority.textContent = addressVlanPriority.textContent;
-        newAddress.appendChild(vlanPriority);
-    }
-    const addressMac = address.querySelector('P[type="MAC-Address"]');
-    if (addressMac) {
-        const mac = address.ownerDocument.createElementNS(TPNS, 'P');
-        mac.setAttribute('type', 'MAC-Address');
-        mac.setAttributeNS(XSINS, 'type', 'tP_MAC-Address');
-        mac.textContent = addressMac.textContent;
-        newAddress.appendChild(mac);
-    }
-    // only proceed if there is something to write
-    if (!(addressVlan || addressVlanPriority || addressMac)) {
-        return null;
-    }
-    return privateSCL;
-}
-
-/** @returns control block or null for a given external reference */
-function sourceControlBlock(extRef) {
-    var _a;
-    const [iedName, srcLDInst, srcPrefix, srcLNClass, srcLNInst, srcCBName] = [
-        'iedName',
-        'srcLDInst',
-        'srcPrefix',
-        'srcLNClass',
-        'srcLNInst',
-        'srcCBName',
-    ].map(attr => { var _a; return (_a = extRef.getAttribute(attr)) !== null && _a !== void 0 ? _a : ''; });
-    return ((_a = Array.from(extRef.ownerDocument.querySelectorAll(`IED[name="${iedName}"] ReportControl, 
-            IED[name="${iedName}"] GSEControl, 
-            IED[name="${iedName}"] SampledValueControl`)).find(cBlock => {
-        var _a;
-        return cBlock.closest('LDevice').getAttribute('inst') === srcLDInst &&
-            ((_a = cBlock.closest('LN, LN0').getAttribute('prefix')) !== null && _a !== void 0 ? _a : '') ===
-                srcPrefix &&
-            cBlock.closest('LN, LN0').getAttribute('lnClass') === srcLNClass &&
-            cBlock.closest('LN, LN0').getAttribute('inst') === srcLNInst &&
-            cBlock.getAttribute('name') === srcCBName;
-    })) !== null && _a !== void 0 ? _a : null);
-}
-
-/**
- * Ensures the nearest element is not within a Private element.
- *
- * @param element
- * @returns
- */
-function isPublic(element) {
-    return !element.closest('Private');
-}
-function getUsedCBs(doc) {
-    // fetch unique control blocks and subscribing IEDs
-    const controlBlocksAndIEDs = new Map();
-    Array.from(doc.querySelectorAll('Inputs > ExtRef'))
-        .filter(isPublic)
-        .forEach(extRef => {
-        var _a;
-        const cb = sourceControlBlock(extRef);
-        const ied = extRef.closest('IED').getAttribute('name');
-        if (!cb)
-            return;
-        // need to store IED and ConnectedAP apName
-        const cbAlreadyExists = controlBlocksAndIEDs.has(cb);
-        const cbHasIed = (_a = controlBlocksAndIEDs.get(cb)) === null || _a === void 0 ? void 0 : _a.includes(ied);
-        if (cbAlreadyExists && !cbHasIed) {
-            controlBlocksAndIEDs.set(cb, [...controlBlocksAndIEDs.get(cb), ied]);
-        }
-        else if (!cbAlreadyExists) {
-            controlBlocksAndIEDs.set(cb, [ied]);
-        }
-    });
-    // provide stable order -- GOOSE then SV, sorted by IED and control block name
-    const sortedControlBlocksAndIEDs = new Map([...controlBlocksAndIEDs].sort((first, second) => {
-        const firstKey = first[0];
-        const secondKey = second[0];
-        const comparison = (e) => `${e.tagName} ${e
-            .closest('IED')
-            .getAttribute('name')} ${e.getAttribute('name')}`;
-        return comparison(secondKey).localeCompare(comparison(firstKey));
-    }));
-    // sort the order IEDs are processed
-    sortedControlBlocksAndIEDs.forEach((value, key) => {
-        sortedControlBlocksAndIEDs.set(key, value.sort());
-    });
-    return sortedControlBlocksAndIEDs.size === 0
-        ? null
-        : sortedControlBlocksAndIEDs;
-}
-
 /** Utility function to create element with `tagName` and its`attributes` */
 function createElement(doc, tag, attrs) {
     const element = doc.createElementNS(doc.documentElement.namespaceURI, tag);
@@ -5545,45 +5384,10 @@ function createElement(doc, tag, attrs) {
         .forEach(([name, value]) => element.setAttribute(name, value));
     return element;
 }
-
-const maxGseMacAddress = 0x010ccd0101ff;
-const minGseMacAddress = 0x010ccd010000;
-const maxSmvMacAddress = 0x010ccd0401ff;
-const minSmvMacAddress = 0x010ccd040000;
-function convertToMac(mac) {
-    const str = 0 + mac.toString(16).toUpperCase();
-    const arr = str.match(/.{1,2}/g);
-    return arr.join("-");
+/** @returns the cartesian product of `arrays` */
+function crossProduct(...arrays) {
+    return arrays.reduce((a, b) => a.flatMap((d) => b.map((e) => [d, e].flat())), [[]]);
 }
-Array(maxGseMacAddress - minGseMacAddress)
-    .fill(1)
-    .map((_, i) => convertToMac(minGseMacAddress + i));
-Array(maxSmvMacAddress - minSmvMacAddress)
-    .fill(1)
-    .map((_, i) => convertToMac(minSmvMacAddress + i));
-
-const maxGseAppId = 0x3fff;
-const minGseAppId = 0x0000;
-// APPID range for Type1A(Trip) GOOSE acc. IEC 61850-8-1
-const maxGseTripAppId = 0xbfff;
-const minGseTripAppId = 0x8000;
-const maxSmvAppId = 0x7fff;
-const minSmvAppId = 0x4000;
-Array(maxGseAppId - minGseAppId)
-    .fill(1)
-    .map((_, i) => (minGseAppId + i).toString(16).toUpperCase().padStart(4, "0"));
-Array(maxGseTripAppId - minGseTripAppId)
-    .fill(1)
-    .map((_, i) => (minGseTripAppId + i).toString(16).toUpperCase().padStart(4, "0"));
-Array(maxSmvAppId - minSmvAppId)
-    .fill(1)
-    .map((_, i) => (minSmvAppId + i).toString(16).toUpperCase().padStart(4, "0"));
-
-/** maximum value for `lnInst` attribute */
-const maxLnInst = 99;
-Array(maxLnInst)
-    .fill(1)
-    .map((_, i) => `${i + 1}`);
 
 const tAbstractConductingEquipment = [
     "TransformerWinding",
@@ -6391,6 +6195,7 @@ const tagSet = new Set(sCLTags);
 function isSCLTag(tag) {
     return tagSet.has(tag);
 }
+
 /**
  * Helper function for to determine schema valid `reference` for OpenSCD
  * core Insert event.
@@ -6421,7 +6226,224 @@ function getReference(parent, tag) {
     return nextSibling ?? null;
 }
 
+/**
+ * Looks up Communication section GSE or SMV addresses based on the control block
+ * within the IED section (GSEControl or SampledValueControl).
+ * @param ctrlBlock - SCL control block element (GSEControl or SampledValueControl)
+ * @returns SCL GSE or SMV address element or null if not found.
+ */
+function controlBlockGseOrSmv(ctrlBlock) {
+    const doc = ctrlBlock.ownerDocument;
+    const ctrlLdInst = ctrlBlock.closest("LDevice")?.getAttribute("inst");
+    const ied = ctrlBlock.closest("IED");
+    const addressTag = ctrlBlock.tagName === "GSEControl" ? "GSE" : "SMV";
+    const apName = ctrlBlock.closest("AccessPoint")?.getAttribute("name");
+    if (!ctrlLdInst || !ied || !apName)
+        return null;
+    const serverAts = Array.from(ied.querySelectorAll(`AccessPoint > ServerAt[apName="${apName}"`)).map((ap) => ap.closest("AccessPoint").getAttribute("name"));
+    const iedName = ied.getAttribute("name");
+    const connectedAps = `:root > Communication > SubNetwork > ConnectedAP[iedName="${iedName}"]`;
+    const connectedApNames = [apName, ...serverAts].map((ap) => `[apName="${ap}"]`);
+    const cbName = ctrlBlock.getAttribute("name");
+    const addressElement = `${addressTag}[ldInst="${ctrlLdInst}"][cbName="${cbName}"]`;
+    return doc.querySelector(crossProduct([connectedAps], connectedApNames, [">"], [addressElement])
+        .map((strings) => strings.join(""))
+        .join(","));
+}
+
+/**
+ * Locates control block from an ExtRef element.
+ * NOTE: Only supports > Edition 2 using the srcXXX attributes.
+ * @param extRef - SCL ExtRef element.
+ * @returns Either ReportControl/GSEControl/SampledValueControl or null
+ * if not found.
+ */
+function sourceControlBlock(extRef) {
+    const [iedName, srcPrefix, srcLNInst, srcCBName] = [
+        "iedName",
+        "srcPrefix",
+        "srcLNInst",
+        "srcCBName",
+    ].map((attr) => extRef.getAttribute(attr));
+    const doc = extRef.ownerDocument;
+    const srcLDInst = extRef.getAttribute("srcLDInst") ?? extRef.getAttribute("ldInst");
+    const srcLNClass = extRef.getAttribute("srcLNClass") ?? "LLN0";
+    const serviceType = extRef.getAttribute("serviceType") ?? extRef.getAttribute("pServT");
+    if (!iedName || !srcLDInst || !srcCBName || serviceType === "Poll")
+        return null;
+    const lDevice = `:root > IED[name="${iedName}"] > AccessPoint > Server > LDevice[inst="${srcLDInst}"]`;
+    const maybeReport = !serviceType || serviceType === "Report";
+    const maybeGSE = !serviceType || serviceType === "GOOSE";
+    const maybeSMV = !serviceType || serviceType === "SMV";
+    const anyLN = srcLNClass === "LLN0" ? "LN0" : "LN";
+    const lnClass = `[lnClass="${srcLNClass}"]`;
+    let lnPrefixQualifiers;
+    if (anyLN === "LN") {
+        lnPrefixQualifiers =
+            srcPrefix && srcPrefix !== ""
+                ? [`[prefix="${srcPrefix}"]`]
+                : [":not([prefix])", '[prefix=""]'];
+    }
+    else {
+        lnPrefixQualifiers = [":not([prefix])"];
+    }
+    // On LN0 srcLNInst missing on the ExtRef means an inst=""
+    // On LN inst must be a non-empty string and so srcLNInst
+    // must also be a non-empty string and be present
+    const lnInst = anyLN !== "LN0" && srcLNInst ? `[inst="${srcLNInst}"]` : '[inst=""]';
+    const cbName = `[name="${srcCBName}"]`;
+    const cbTypes = [
+        maybeReport ? `ReportControl${cbName}` : null,
+        maybeGSE ? `GSEControl${cbName}` : null,
+        maybeSMV ? `SampledValueControl${cbName}` : null,
+    ].filter((s) => !!s);
+    return doc.querySelector(crossProduct([`${lDevice}>${anyLN}${lnClass}${lnInst}`], lnPrefixQualifiers, [">"], cbTypes)
+        .map((strings) => strings.join(""))
+        .join(","));
+}
+
+const maxGseMacAddress = 0x010ccd0101ff;
+const minGseMacAddress = 0x010ccd010000;
+const maxSmvMacAddress = 0x010ccd0401ff;
+const minSmvMacAddress = 0x010ccd040000;
+function convertToMac(mac) {
+    const str = 0 + mac.toString(16).toUpperCase();
+    const arr = str.match(/.{1,2}/g);
+    return arr.join("-");
+}
+Array(maxGseMacAddress - minGseMacAddress)
+    .fill(1)
+    .map((_, i) => convertToMac(minGseMacAddress + i));
+Array(maxSmvMacAddress - minSmvMacAddress)
+    .fill(1)
+    .map((_, i) => convertToMac(minSmvMacAddress + i));
+
+const maxGseAppId = 0x3fff;
+const minGseAppId = 0x0000;
+// APPID range for Type1A(Trip) GOOSE acc. IEC 61850-8-1
+const maxGseTripAppId = 0xbfff;
+const minGseTripAppId = 0x8000;
+const maxSmvAppId = 0x7fff;
+const minSmvAppId = 0x4000;
+Array(maxGseAppId - minGseAppId)
+    .fill(1)
+    .map((_, i) => (minGseAppId + i).toString(16).toUpperCase().padStart(4, "0"));
+Array(maxGseTripAppId - minGseTripAppId)
+    .fill(1)
+    .map((_, i) => (minGseTripAppId + i).toString(16).toUpperCase().padStart(4, "0"));
+Array(maxSmvAppId - minSmvAppId)
+    .fill(1)
+    .map((_, i) => (minSmvAppId + i).toString(16).toUpperCase().padStart(4, "0"));
+
+/** maximum value for `lnInst` attribute */
+const maxLnInst = 99;
+Array(maxLnInst)
+    .fill(1)
+    .map((_, i) => `${i + 1}`);
+
 await fetch(new URL(new URL('assets/nsd-0a370a57.json', import.meta.url).href, import.meta.url)).then((res) => res.json());
+
+const TPNS = 'https://transpower.co.nz/SCL/SCD/Communication/v1';
+const XSINS = 'http://www.w3.org/2001/XMLSchema-instance';
+/**
+ * Creates either a Transpower-GSE-Subscribe or Transpower-SMV-Subscribe
+ * element which has `P` elements which provide the MAC address
+ * VLAN-ID and and VLAN-Priority similar to the standard's GSE and SMV
+ * elements
+ * @param address - SCL address element `GSE` or `SMV`.
+ * @returns - an Element or undefined if nothing to create
+ */
+function createSubscribedAddress(address) {
+    const privateSCL = address.ownerDocument.createElementNS(address.ownerDocument.documentElement.namespaceURI, 'Private');
+    privateSCL.setAttribute('type', `Transpower-${address.tagName}-Subscribe`);
+    const iedName = address.closest('ConnectedAP').getAttribute('iedName');
+    privateSCL.setAttributeNS(TPNS, 'iedName', iedName);
+    const cbName = address.getAttribute('cbName');
+    if (cbName)
+        privateSCL.setAttributeNS(TPNS, 'cbName', cbName);
+    const ldInst = address.getAttribute('ldInst');
+    if (ldInst)
+        privateSCL.setAttributeNS(TPNS, 'ldInst', ldInst);
+    const newAddress = address.ownerDocument.createElementNS(TPNS, 'Address');
+    privateSCL.appendChild(newAddress);
+    const addressVlan = address.querySelector('P[type="VLAN-ID"]');
+    if (addressVlan) {
+        const vlanId = address.ownerDocument.createElementNS(TPNS, 'P');
+        vlanId.setAttribute('type', 'VLAN-ID');
+        vlanId.setAttributeNS(XSINS, 'type', 'tP_VLAN-ID');
+        vlanId.textContent = addressVlan.textContent;
+        newAddress.appendChild(vlanId);
+    }
+    const addressVlanPriority = address.querySelector('P[type="VLAN-PRIORITY"]');
+    if (addressVlanPriority) {
+        const vlanPriority = address.ownerDocument.createElementNS(TPNS, 'P');
+        vlanPriority.setAttribute('type', 'VLAN-PRIORITY');
+        vlanPriority.setAttributeNS(XSINS, 'type', 'tP_VLAN-PRIORITY');
+        vlanPriority.textContent = addressVlanPriority.textContent;
+        newAddress.appendChild(vlanPriority);
+    }
+    const addressMac = address.querySelector('P[type="MAC-Address"]');
+    if (addressMac) {
+        const mac = address.ownerDocument.createElementNS(TPNS, 'P');
+        mac.setAttribute('type', 'MAC-Address');
+        mac.setAttributeNS(XSINS, 'type', 'tP_MAC-Address');
+        mac.textContent = addressMac.textContent;
+        newAddress.appendChild(mac);
+    }
+    // only proceed if there is something to write
+    if (!(addressVlan || addressVlanPriority || addressMac)) {
+        return null;
+    }
+    return privateSCL;
+}
+
+/**
+ * Ensures the nearest element is not within a Private element.
+ *
+ * @param element
+ * @returns
+ */
+function isPublic(element) {
+    return !element.closest('Private');
+}
+function getUsedCBs(doc) {
+    // fetch unique control blocks and subscribing IEDs
+    const controlBlocksAndIEDs = new Map();
+    Array.from(doc.querySelectorAll('Inputs > ExtRef'))
+        .filter(isPublic)
+        .forEach(extRef => {
+        var _a;
+        const cb = sourceControlBlock(extRef);
+        const ied = extRef.closest('IED').getAttribute('name');
+        if (!cb)
+            return;
+        // need to store IED and ConnectedAP apName
+        const cbAlreadyExists = controlBlocksAndIEDs.has(cb);
+        const cbHasIed = (_a = controlBlocksAndIEDs.get(cb)) === null || _a === void 0 ? void 0 : _a.includes(ied);
+        if (cbAlreadyExists && !cbHasIed) {
+            controlBlocksAndIEDs.set(cb, [...controlBlocksAndIEDs.get(cb), ied]);
+        }
+        else if (!cbAlreadyExists) {
+            controlBlocksAndIEDs.set(cb, [ied]);
+        }
+    });
+    // provide stable order -- GOOSE then SV, sorted by IED and control block name
+    const sortedControlBlocksAndIEDs = new Map([...controlBlocksAndIEDs].sort((first, second) => {
+        const firstKey = first[0];
+        const secondKey = second[0];
+        const comparison = (e) => `${e.tagName} ${e
+            .closest('IED')
+            .getAttribute('name')} ${e.getAttribute('name')}`;
+        return comparison(secondKey).localeCompare(comparison(firstKey));
+    }));
+    // sort the order IEDs are processed
+    sortedControlBlocksAndIEDs.forEach((value, key) => {
+        sortedControlBlocksAndIEDs.set(key, value.sort());
+    });
+    return sortedControlBlocksAndIEDs.size === 0
+        ? null
+        : sortedControlBlocksAndIEDs;
+}
 
 function getCommEdit(address, privateSCL, iedName) {
     // const apIedNameRx = address.closest('ConnectedAP')!.getAttribute('iedName');
@@ -6517,7 +6539,7 @@ class NetworkData extends s$1 {
         if (!usedCBs)
             return;
         usedCBs.forEach((subscribingIedNames, cb) => {
-            const address = getCommAddress(cb);
+            const address = controlBlockGseOrSmv(cb);
             // missing address
             if (!address)
                 return;

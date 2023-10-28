@@ -36,7 +36,7 @@ describe('Function to fetch control blocks', () => {
     expect(cbs!.get(keySmv)).is.eql(['SMV_Subscriber']);
     expect(cbs!.get(keyGOOSE2)).is.eql([
       'GOOSE_Subscriber',
-      'GOOSE_Subscriber2',
+      'GOOSE_Subscriber2'
     ]);
   });
 

@@ -23,20 +23,20 @@ export function getCommEdit(
     edit = {
       parent: connectedAp,
       node: privateSCL.cloneNode(true),
-      reference: getReference(connectedAp, 'Private'),
+      reference: getReference(connectedAp, 'Private')
     };
   } else {
     // create new access point
     const newConnectedAp = createElement(doc, 'ConnectedAP', {
       apName,
-      iedName,
+      iedName
     });
     newConnectedAp.appendChild(privateSCL.cloneNode(true));
 
     edit = {
       parent: subNetwork,
       node: newConnectedAp,
-      reference: getReference(subNetwork, 'ConnectedAP'),
+      reference: getReference(subNetwork, 'ConnectedAP')
     };
   }
   return edit;

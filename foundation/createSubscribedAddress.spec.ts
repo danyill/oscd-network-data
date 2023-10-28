@@ -3,7 +3,7 @@ import { expect } from '@open-wc/testing';
 import {
   TPNS,
   XSINS,
-  createSubscribedAddress,
+  createSubscribedAddress
 } from './createSubscribedAddress.js';
 import { createSubscribedAddressDoc } from './createSubscribedAddress.testfiles.js';
 

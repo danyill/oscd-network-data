@@ -5,7 +5,7 @@ import { LitElement, html } from 'lit';
 import {
   networkDataTestDoc,
   networkDataTestDocMissingGSEAddressInfo,
-  networkDataTestDocWithoutAddresses,
+  networkDataTestDocWithoutAddresses
 } from './oscd-network-data.testfiles.js';
 
 import '@openscd/open-scd-core/open-scd.js';
@@ -36,9 +36,9 @@ beforeEach(async () => {
         icon: 'link',
         active: true,
         requireDoc: true,
-        src: '/dist/oscd-network-data.js',
-      },
-    ],
+        src: '/dist/oscd-network-data.js'
+      }
+    ]
   };
 
   script = document.createElement('script');

@@ -9,7 +9,7 @@ import { TPNS, XSINS } from './createSubscribedAddress.js';
 export function updateNamespaces(doc: XMLDocument): Update | undefined {
   const namespaceUpdate: Update = {
     element: doc.documentElement,
-    attributes: {},
+    attributes: {}
   };
 
   if (!doc.documentElement.hasAttribute('xmlns:etpc'))
@@ -17,8 +17,8 @@ export function updateNamespaces(doc: XMLDocument): Update | undefined {
       ...namespaceUpdate.attributes,
       'xmlns:etpc': {
         value: TPNS,
-        namespaceURI: 'http://www.w3.org/2000/xmlns/',
-      },
+        namespaceURI: 'http://www.w3.org/2000/xmlns/'
+      }
     };
 
   if (!doc.documentElement.hasAttribute('xmlns:xsi'))
@@ -26,8 +26,8 @@ export function updateNamespaces(doc: XMLDocument): Update | undefined {
       ...namespaceUpdate.attributes,
       'xmlns:xsi': {
         value: XSINS,
-        namespaceURI: 'http://www.w3.org/2000/xmlns/',
-      },
+        namespaceURI: 'http://www.w3.org/2000/xmlns/'
+      }
     };
 
   if (!(Object.entries(namespaceUpdate.attributes).length === 0))

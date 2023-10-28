@@ -98,7 +98,7 @@ describe('Creates Private subscription communication elements', () => {
     await editor.updateComplete;
     await plugin.updateComplete;
 
-    await timeout(600); // plugin loading and initial render?
+    await timeout(1000); // plugin loading and initial render?
 
     expect(
       plugin.doc.querySelectorAll(

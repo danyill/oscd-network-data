@@ -1,11 +1,7 @@
 import { LitElement, TemplateResult, html } from 'lit';
 import { property, query } from 'lit/decorators.js';
 
-import '@material/mwc-button';
-import '@material/mwc-dialog';
-import '@material/mwc-formfield';
 import '@material/mwc-snackbar';
-import '@material/mwc-switch';
 
 import { Edit, newEditEvent } from '@openscd/open-scd-core';
 import { controlBlockGseOrSmv } from '@openenergytools/scl-lib';
@@ -18,6 +14,10 @@ import { getCommEdit } from './foundation/getCommEdit.js';
 import { updateNamespaces } from './foundation/updateNamespaces.js';
 import { removeExistingSubscribedAddresses } from './foundation/removeExistingSubscribedAddresses.js';
 
+/**
+ * A plugin which supplements data in the Communication section
+ * to show subscribing data for GSE and SMV addresses.
+ */
 export default class NetworkData extends LitElement {
   /** The document being edited as provided to plugins by [[`OpenSCD`]]. */
   @property({ attribute: false })
@@ -50,7 +50,6 @@ export default class NetworkData extends LitElement {
     this.dispatchEvent(newEditEvent(edits));
 
     // now build addresses from scratch
-
     this.subscriptionCount = 0;
 
     let addedSubscriptionCount = 0;

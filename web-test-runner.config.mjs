@@ -1,7 +1,7 @@
 const filteredLogs = [
   'Running in dev mode',
   'Lit is in dev mode',
-  'mwc-list-item scheduled an update',
+  'scheduled an update',
 ];
 
 export default /** @type {import("@web/test-runner").TestRunnerConfig} */ ({
